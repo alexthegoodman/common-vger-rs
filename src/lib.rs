@@ -1,4 +1,5 @@
 use cosmic_text::{SubpixelBin, SwashImage};
+use floem_renderer::gpu_resources::GpuResources;
 use std::sync::Arc;
 
 mod path;
@@ -78,8 +79,9 @@ impl Scissor {
 }
 
 pub struct Vger {
-    device: Arc<wgpu::Device>,
-    queue: Arc<wgpu::Queue>,
+    // device: Arc<wgpu::Device>,
+    // queue: Arc<wgpu::Queue>,
+    gpu_resources: Arc<GpuResources>,
     scenes: [Scene; 3],
     cur_scene: usize,
     cur_layer: usize,
@@ -106,127 +108,147 @@ pub struct Vger {
 impl Vger {
     /// Create a new renderer given a device and output pixel format.
     pub fn new(
-        device: Arc<wgpu::Device>,
-        queue: Arc<wgpu::Queue>,
+        // device: Arc<wgpu::Device>,
+        // queue: Arc<wgpu::Queue>,
+        gpu_resources: Arc<GpuResources>,
         texture_format: wgpu::TextureFormat,
     ) -> Self {
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
-                "shader.wgsl"
-            ))),
-        });
+        let shader = gpu_resources
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: None,
+                source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!(
+                    "shader.wgsl"
+                ))),
+            });
 
         let scenes = [
-            Scene::new(&device),
-            Scene::new(&device),
-            Scene::new(&device),
+            Scene::new(&gpu_resources.device),
+            Scene::new(&gpu_resources.device),
+            Scene::new(&gpu_resources.device),
         ];
 
         let uniform_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
+            gpu_resources
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("uniform_bind_group_layout"),
-            });
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                    label: Some("uniform_bind_group_layout"),
+                });
 
         let cache_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
+            gpu_resources
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                            },
+                            count: None,
                         },
-                        count: None,
-                    },
-                ],
-                label: Some("image_bind_group_layout"),
+                    ],
+                    label: Some("image_bind_group_layout"),
+                });
+
+        let glyph_cache = GlyphCache::new(&gpu_resources.device);
+
+        let uniforms = GPUVec::new_uniforms(&gpu_resources.device, "uniforms");
+
+        let glyph_sampler = gpu_resources
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("glyph"),
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
             });
 
-        let glyph_cache = GlyphCache::new(&device);
+        let color_glyph_sampler = gpu_resources
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor {
+                label: Some("color_glyph"),
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Linear,
+                ..Default::default()
+            });
 
-        let uniforms = GPUVec::new_uniforms(&device, "uniforms");
+        let uniform_bind_group =
+            gpu_resources
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &uniform_bind_group_layout,
+                    entries: &[
+                        uniforms.bind_group_entry(0),
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&glyph_sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: wgpu::BindingResource::Sampler(&color_glyph_sampler),
+                        },
+                    ],
+                    label: Some("vger bind group"),
+                });
 
-        let glyph_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("glyph"),
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
+        let cache_bind_group = Self::get_cache_bind_group(
+            &gpu_resources.device,
+            &glyph_cache,
+            &cache_bind_group_layout,
+        );
 
-        let color_glyph_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("color_glyph"),
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
-
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &uniform_bind_group_layout,
-            entries: &[
-                uniforms.bind_group_entry(0),
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&glyph_sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&color_glyph_sampler),
-                },
-            ],
-            label: Some("vger bind group"),
-        });
-
-        let cache_bind_group =
-            Self::get_cache_bind_group(&device, &glyph_cache, &cache_bind_group_layout);
-
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[
-                &Scene::bind_group_layout(&device),
-                &uniform_bind_group_layout,
-                &cache_bind_group_layout,
-            ],
-            push_constant_ranges: &[],
-        });
+        let pipeline_layout =
+            gpu_resources
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: None,
+                    bind_group_layouts: &[
+                        &Scene::bind_group_layout(&gpu_resources.device),
+                        &uniform_bind_group_layout,
+                        &cache_bind_group_layout,
+                    ],
+                    push_constant_ranges: &[],
+                });
 
         let blend_comp = wgpu::BlendComponent {
             operation: wgpu::BlendOperation::Add,
@@ -234,42 +256,62 @@ impl Vger {
             dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
         };
 
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "vs_main",
-                buffers: &[],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: texture_format,
-                    blend: Some(wgpu::BlendState {
-                        color: blend_comp,
-                        alpha: blend_comp,
+        let pipeline =
+            gpu_resources
+                .device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: None,
+                    layout: Some(&pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &shader,
+                        entry_point: "vs_main",
+                        buffers: &[],
+                        compilation_options: Default::default(),
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &shader,
+                        entry_point: "fs_main",
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: texture_format,
+                            // blend: Some(wgpu::BlendState {
+                            //     color: blend_comp,
+                            //     alpha: blend_comp,
+                            // }),
+                            // write_mask: wgpu::ColorWrites::ALL,
+                            blend: Some(wgpu::BlendState {
+                                color: wgpu::BlendComponent {
+                                    src_factor: wgpu::BlendFactor::SrcAlpha,
+                                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                                    operation: wgpu::BlendOperation::Add,
+                                },
+                                alpha: wgpu::BlendComponent {
+                                    src_factor: wgpu::BlendFactor::One,
+                                    dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                                    operation: wgpu::BlendOperation::Add,
+                                },
+                            }),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                        compilation_options: Default::default(),
                     }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                cull_mode: None,
-                topology: wgpu::PrimitiveTopology::TriangleStrip,
-                ..Default::default()
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview: None,
-            cache: None,
-        });
+                    primitive: wgpu::PrimitiveState {
+                        cull_mode: None,
+                        topology: wgpu::PrimitiveTopology::TriangleStrip,
+                        ..Default::default()
+                    },
+                    depth_stencil: None,
+                    // multisample: wgpu::MultisampleState::default(),
+                    multisample: wgpu::MultisampleState {
+                        count: 1,
+                        mask: !0,
+                        alpha_to_coverage_enabled: false,
+                    },
+                    multiview: None,
+                    cache: None,
+                });
 
         Self {
-            device,
-            queue,
+            gpu_resources,
             scenes,
             cur_scene: 0,
             cur_layer: 0,
@@ -338,10 +380,10 @@ impl Vger {
         self.pen = LocalPoint::zero();
 
         // If we're getting close to full, reset the glyph cache.
-        if self.glyph_cache.check_usage(&self.device) {
+        if self.glyph_cache.check_usage(&self.gpu_resources.device) {
             // if resized, we need to get new bind group
             self.cache_bind_group = Self::get_cache_bind_group(
-                &self.device,
+                &self.gpu_resources.device,
                 &self.glyph_cache,
                 &self.cache_bind_group_layout,
             )
@@ -367,9 +409,14 @@ impl Vger {
     }
 
     /// Encode all rendering to a command buffer.
-    pub fn encode(&mut self, render_pass: &wgpu::RenderPassDescriptor) {
-        let device = &self.device;
-        let queue = &self.queue;
+    pub fn encode(
+        &mut self,
+        render_pass: &wgpu::RenderPassDescriptor,
+        // mut encode_callback: F,
+        // window_handle: WindowHandle
+    ) -> Option<wgpu::CommandEncoder> {
+        let device = &self.gpu_resources.device;
+        let queue = &self.gpu_resources.queue;
         self.scenes[self.cur_scene].update(device, queue);
         self.uniforms.update(device, queue);
         let mut current_texture = -1;
@@ -435,8 +482,15 @@ impl Vger {
                     /*instances*/ start..(start + m),
                 )
             }
+
+            // if let Some(callback) = &encode_callback {
+            // let command_ref = RefCell::new(self);
+            // encode_callback(&mut encoder);
+            // }
         }
-        queue.submit(Some(encoder.finish()));
+        // queue.submit(Some(encoder.finish()));
+
+        Some(encoder)
     }
 
     fn render(&mut self, prim: Prim) {
@@ -922,21 +976,23 @@ impl Vger {
             view_formats: &[wgpu::TextureFormat::Rgba8UnormSrgb],
         };
 
-        let texture = self.device.create_texture(&texture_desc);
+        let texture = self.gpu_resources.device.create_texture(&texture_desc);
 
-        let buffer = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Temp Buffer"),
-                contents: data,
-                usage: wgpu::BufferUsages::COPY_SRC,
-            });
+        let buffer =
+            self.gpu_resources
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Temp Buffer"),
+                    contents: data,
+                    usage: wgpu::BufferUsages::COPY_SRC,
+                });
 
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("texture_buffer_copy_encoder"),
-            });
+        let mut encoder =
+            self.gpu_resources
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("texture_buffer_copy_encoder"),
+                });
 
         let image_size = wgpu::Extent3d {
             width,
@@ -962,7 +1018,9 @@ impl Vger {
             image_size,
         );
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.gpu_resources
+            .queue
+            .submit(std::iter::once(encoder.finish()));
 
         let index = ImageIndex {
             index: self.images.len(),
@@ -972,14 +1030,17 @@ impl Vger {
 
         self.images.push(Some(texture));
 
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.cache_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 1,
-                resource: wgpu::BindingResource::TextureView(&texture_view),
-            }],
-            label: Some("vger bind group"),
-        });
+        let bind_group = self
+            .gpu_resources
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: &self.cache_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                }],
+                label: Some("vger bind group"),
+            });
 
         self.image_bind_groups.push(Some(bind_group));
 
