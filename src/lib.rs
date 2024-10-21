@@ -168,8 +168,8 @@ impl Vger {
                             binding: 0,
                             visibility: wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                multisampled: true,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: false },
                                 view_dimension: wgpu::TextureViewDimension::D2,
                             },
                             count: None,
@@ -178,8 +178,8 @@ impl Vger {
                             binding: 1,
                             visibility: wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                                multisampled: true,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: false },
                                 view_dimension: wgpu::TextureViewDimension::D2,
                             },
                             count: None,
@@ -260,7 +260,7 @@ impl Vger {
             gpu_resources
                 .device
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: None,
+                    label: Some("Vger Render Pipeline"),
                     layout: Some(&pipeline_layout),
                     vertex: wgpu::VertexState {
                         module: &shader,
@@ -300,9 +300,18 @@ impl Vger {
                         ..Default::default()
                     },
                     depth_stencil: None,
+                    // depth_stencil: Some(wgpu::DepthStencilState {
+                    //     format: wgpu::TextureFormat::Depth24Plus,
+                    //     depth_write_enabled: true,
+                    //     depth_compare: wgpu::CompareFunction::Less,
+                    //     // depth_write_enabled: false,
+                    //     // depth_compare: wgpu::CompareFunction::Always,
+                    //     stencil: wgpu::StencilState::default(),
+                    //     bias: wgpu::DepthBiasState::default(),
+                    // }),
                     // multisample: wgpu::MultisampleState::default(),
                     multisample: wgpu::MultisampleState {
-                        count: 1,
+                        count: 4,
                         mask: !0,
                         alpha_to_coverage_enabled: false,
                     },
@@ -968,10 +977,12 @@ impl Vger {
         let texture_desc = wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count: 4,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::TEXTURE_BINDING,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::TEXTURE_BINDING,
             label: Some("lyte image"),
             view_formats: &[wgpu::TextureFormat::Rgba8UnormSrgb],
         };

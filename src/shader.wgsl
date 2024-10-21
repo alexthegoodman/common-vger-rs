@@ -640,11 +640,11 @@ var color_samp : sampler;
 
 @group(2)
 @binding(0)
-var glyph_atlas: texture_2d<f32>;
+var glyph_atlas: texture_multisampled_2d<f32>;
 
 @group(2)
 @binding(1)
-var color_atlas: texture_2d<f32>;
+var color_atlas: texture_multisampled_2d<f32>;
 
 
 // sRGB to linear conversion for one channel.
@@ -677,6 +677,8 @@ fn roundedBoxShadowX(x: f32, y: f32, sigma: f32, corner: f32, halfSize: vec2<f32
     return integral.y - integral.x;
 }
 
+const SAMPLE_COUNT: u32 = 4u;
+
 @fragment
 fn fs_main(
     in: VertexOutput,
@@ -687,11 +689,27 @@ fn fs_main(
     let paint = paints.paints[prim.paint];
     let scissor = scissors.scissors[prim.scissor];
 
-    // Look up glyph alpha (if not a glyph, still have to because of wgsl).
-    // let a = textureSample(glyph_atlas, samp, (in.t+0.5)/1024.0).r;
-    // let mask = textureLoad(glyph_atlas, vec2<i32>(in.t), 0);
-    let mask = textureSample(glyph_atlas, samp, in.t/in.size);
-    let color_mask = textureSample(color_atlas, color_samp, in.t/in.size);
+    // // Look up glyph alpha (if not a glyph, still have to because of wgsl).
+    // // let a = textureSample(glyph_atlas, samp, (in.t+0.5)/1024.0).r;
+    // // let mask = textureLoad(glyph_atlas, vec2<i32>(in.t), 0);
+    // let mask = textureSample(glyph_atlas, samp, in.t/in.size);
+    // let color_mask = textureSample(color_atlas, color_samp, in.t/in.size);
+
+    // handle multisampling
+    var mask = vec4<f32>(0.0);
+    var color_mask = vec4<f32>(0.0);
+    // let tex_coords = vec2<i32>(in.t / in.size);
+
+    let tex_size = vec2<f32>(textureDimensions(glyph_atlas));
+    let tex_coords = vec2<i32>(in.t / in.size * tex_size);
+    
+    for (var i: i32 = 0; i < i32(SAMPLE_COUNT); i = i + 1) {
+        mask += textureLoad(glyph_atlas, tex_coords, i);
+        color_mask += textureLoad(color_atlas, tex_coords, i);
+    }
+
+    mask /= f32(SAMPLE_COUNT);
+    color_mask /= f32(SAMPLE_COUNT);
 
     // Look up image color (if no active image, still have to because of wgsl).
     // Note that we could use a separate shader if that's a perf hit.

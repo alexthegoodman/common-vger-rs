@@ -149,7 +149,7 @@ pub fn render_test(
     let texture_desc = wgpu::TextureDescriptor {
         size: texture_size,
         mip_level_count: 1,
-        sample_count: 1,
+        sample_count: 4,
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Rgba8UnormSrgb,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,

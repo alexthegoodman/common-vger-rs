@@ -47,10 +47,11 @@ impl Atlas {
         wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count: 4,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::R8Unorm,
-            usage: wgpu::TextureUsages::COPY_SRC
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::TEXTURE_BINDING,
             label: Some("atlas_texture"),
@@ -99,10 +100,11 @@ impl Atlas {
         let desc = wgpu::TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
-            sample_count: 1,
+            sample_count: 4,
             dimension: wgpu::TextureDimension::D2,
             format,
-            usage: wgpu::TextureUsages::COPY_SRC
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_SRC
                 | wgpu::TextureUsages::COPY_DST
                 | wgpu::TextureUsages::TEXTURE_BINDING,
             label: Some("atlas_texture"),
