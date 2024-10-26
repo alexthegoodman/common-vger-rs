@@ -795,4 +795,12 @@ fn fs_main(
     }
 
     return s * mix(vec4<f32>(color.rgb,0.0), color, 1.0-smoothstep(-fw/2.0,fw/2.0,d) );
+
+    // var final_color = s * mix(vec4<f32>(color.rgb,0.0), color, 1.0-smoothstep(-fw/2.0,fw/2.0,d));
+    // var msaa_color = vec4<f32>(0.0);
+    // for (var i: i32 = 0; i < i32(SAMPLE_COUNT); i = i + 1) {
+    //     // Compute gradient per sample
+    //     msaa_color += final_color;
+    // }
+    // return msaa_color / f32(SAMPLE_COUNT);
 }
