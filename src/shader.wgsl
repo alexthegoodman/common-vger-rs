@@ -695,6 +695,40 @@ fn fs_main(
     // let mask = textureSample(glyph_atlas, samp, in.t/in.size);
     // let color_mask = textureSample(color_atlas, color_samp, in.t/in.size);
 
+    // For debugging - if it's an image, return a solid color first
+    // let debug_color = vec4<f32>(1.0, 0.0, 0.0, 1.0);  // Bright red
+    
+    // // // Print or look at the values
+    // if prim.prim_type == 9u {
+    //     return debug_color;  // Should be bright red if this path is hit
+    // }
+    
+    // if prim.prim_type == 0u {
+    //     return vec4<f32>(0.0, 1.0, 0.0, 1.0);  // Green for type 0
+    // } else if prim.prim_type == 1u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 2u {
+    //     return vec4<f32>(1.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 3u {
+    //     return vec4<f32>(0.0, 1.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 4u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 5u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 6u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 7u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 8u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 9u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 10u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // } else if prim.prim_type == 11u {
+    //     return vec4<f32>(0.0, 0.0, 1.0, 1.0);  // Blue for type 1
+    // }
+
     // handle multisampling
     var mask = vec4<f32>(0.0);
     var color_mask = vec4<f32>(0.0);
@@ -765,7 +799,7 @@ fn fs_main(
 
         // XXX: using toLinear is a bit of a guess. Gets us closer
         // to matching the glyph atlas in the output.
-        var color = vec4<f32>(color_mask.rgb, c.a * color_mask.a);
+        var color = vec4<f32>(color_mask.rgb, 1.0);
 
         //if(glow) {
         //    color.a *= paint.glow;
@@ -773,6 +807,16 @@ fn fs_main(
 
         return s * color;
     }
+
+    // if prim.prim_type == 9u { // vgerColorGlyph
+    //     // Normalize coordinates
+    //     let norm_x = (in.t.x - prim.tex_bounds_min.x) / (prim.tex_bounds_max.x - prim.tex_bounds_min.x);
+    //     let norm_y = (in.t.y - prim.tex_bounds_min.y) / (prim.tex_bounds_max.y - prim.tex_bounds_min.y);
+        
+    //     // Return a color based on normalized coordinates
+    //     // This should show a gradient if coordinates are mapping correctly
+    //     return vec4<f32>(norm_x, norm_y, 0.0, 1.0);
+    // }
 
     if(prim.prim_type == 11u) { // overrideColorSvg
 

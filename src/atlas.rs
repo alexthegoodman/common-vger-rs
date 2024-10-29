@@ -118,16 +118,31 @@ impl Atlas {
         if max_seen > self.max_seen {
             self.max_seen = max_seen;
         }
+
+        // println!(
+        //     "Attempting to add region: {}x{} to atlas size: {}x{}",
+        //     width, height, self.width, self.height
+        // );
+
         if let Some(rect) = self.packer.pack(width as i32, height as i32, false) {
+            // println!("  Success! Placed at: {:?}", rect);
+
             self.new_data.push(ImageData {
                 rect,
                 data: data.into(),
             });
             self.area_used +=
                 (rect.width + Atlas::RECT_PADDING) * (rect.height + Atlas::RECT_PADDING);
+            // println!(
+            //     "  Area used: {}/{}",
+            //     self.area_used,
+            //     (self.width * self.height) as i32
+            // );
 
             Some(rect)
         } else {
+            // println!("  Failed to pack region");
+
             None
         }
     }

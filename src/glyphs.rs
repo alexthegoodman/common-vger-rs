@@ -42,7 +42,7 @@ pub struct GlyphCache {
 
 impl GlyphCache {
     pub fn new(device: &wgpu::Device) -> Self {
-        let size = 1024;
+        let size = 4096;
         Self {
             size,
             mask_atlas: Atlas::new(device, AtlasContent::Mask, size, size),
@@ -55,10 +55,13 @@ impl GlyphCache {
 
     pub fn get_image_mask(&mut self, hash: &[u8], image_fn: impl FnOnce() -> Image) -> AtlasInfo {
         if let Some(info) = self.img_infos.get(hash) {
+            // println!("Found cached image info: {:?}", info);
             return *info;
         }
 
         let image = image_fn();
+        // println!("Adding new image: {}x{}", image.width, image.height);
+
         let rect = self
             .color_atlas
             .add_region(&image.data, image.width, image.height);
@@ -68,6 +71,7 @@ impl GlyphCache {
             top: 0,
             colored: true,
         };
+        // println!("Got atlas info: {:?}", info);
         self.img_infos.insert(hash.to_vec(), info);
 
         info
